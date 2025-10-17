@@ -344,31 +344,32 @@ if makanan:
         # End recommendations
 
         # -------------------------
-        # Optional AI Assistant (ChatGPT)
+               # -------------------------
+        # Optional AI Assistant (ChatGPT) - FIXED (unique keys)
         # -------------------------
         st.divider()
         st.subheader("🤖 AI Assistant (opsional)")
         st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.")
 
-        ai_prompt = st.text_area("Tanya AI (contoh: " + "'Beri aku ide makan siang 400 kkal kaya protein'" + ")", height=80)
-        ask_ai = st.button("Kirim ke AI")
-
-        st.divider()
-        st.subheader("🤖 AI Assistant (opsional)")
-        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.")
+        # gunakan key unik untuk text_area & button agar tidak terjadi duplicate element id
+        if "ai_prompt" not in st.session_state:
+            st.session_state.ai_prompt = ""
 
         ai_prompt = st.text_area(
             "Tanya AI (contoh: 'Beri aku ide makan siang 400 kkal kaya protein')",
-            height=80
+            value=st.session_state.get("ai_prompt", ""),
+            height=80,
+            key="ai_prompt_textarea",  # unik
         )
-        ask_ai = st.button("Kirim ke AI")
+
+        # tombol dengan key unik
+        ask_ai = st.button("Kirim ke AI", key="ask_ai_button")
 
         # -------------------------
-        # ✅ FIXED: ambil API key dengan benar
+        # Ambil API key dengan benar
         # -------------------------
         def _get_openai_key():
             try:
-                # Gunakan key dari secrets, bukan nama panjang di dalam kode
                 return st.secrets["OPENAI_API_KEY"]
             except Exception:
                 return os.environ.get("OPENAI_API_KEY")
@@ -384,7 +385,6 @@ if makanan:
                 "Authorization": f"Bearer {api_key}",
             }
 
-            # konteks intake
             context = (
                 f"Current totals: kalori={cal:.1f} kcal, protein={prot:.1f} g, "
                 f"karbo={kar:.1f} g, lemak={fat:.1f} g, TDEE={tdee:.0f} kcal."
@@ -421,15 +421,19 @@ if makanan:
             except Exception as e:
                 return None, str(e)
 
-        if ask_ai and ai_prompt.strip():
-            with st.spinner("Menghubungi AI..."):
-                resp, err = call_openai_chat(ai_prompt.strip())
-            if err:
-                st.error(f"Gagal: {err}")
-            elif resp:
-                st.markdown("**AI Response:**")
-                st.info(resp)
+        # jalankan panggilan AI hanya bila tombol ditekan
+        if ask_ai:
+            # simpan prompt ke session_state agar tidak hilang pada rerun
+            st.session_state.ai_prompt = ai_prompt
+            if ai_prompt.strip():
+                with st.spinner("Menghubungi AI..."):
+                    resp, err = call_openai_chat(ai_prompt.strip())
+                if err:
+                    st.error(f"Gagal: {err}")
+                elif resp:
+                    st.markdown("**AI Response:**")
+                    st.info(resp)
+                else:
+                    st.write("Tidak ada jawaban dari AI.")
             else:
-                st.write("Tidak ada jawaban dari AI.")
-else:
-    st.write("💬 Pilih makanan & masukin porsinya buat liat hasilnya, bestie.")
+                st.warning("Tolong ketik pertanyaan sebelum mengirim ke AI.")
