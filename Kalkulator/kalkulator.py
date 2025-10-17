@@ -78,7 +78,7 @@ with st.container():
     with col1:
         gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
         usia = st.slider("Usia (tahun)", 1, 100, 25)
-        aktivitas = st.selectbox("Level Aktivitas", ["Santai (rebahan)", "Normal (kuliah/kerja)", "Sangat Aktif (nge-gym)"])
+        aktivitas = st.selectbox("Level Aktivitas", ["Santai (rebahan)", "Normal (kuliah/kerja)", "Sangat Aktif (nge-gym/sibuk bngt)"])
     with col2:
         berat = st.slider("Berat Badan (kg)", 1, 200, 60)
         tinggi = st.slider("Tinggi Badan (cm)", 100, 220, 165)
@@ -91,7 +91,7 @@ if gender == "Laki-laki":
 else:
     bmr = 10 * berat + 6.25 * tinggi - 5 * usia - 161
 
-faktor = {"Santai (rebahan)": 1.2, "Normal (kuliah/kerja)": 1.55, "Sangat Aktif (nge-gym)": 1.725}
+faktor = {"Santai (rebahan)": 1.2, "Normal (kuliah/kerja)": 1.55, "Sangat Aktif (nge-gym/sibuk bngt)": 1.725}
 tdee = bmr * faktor[aktivitas]
 
 st.success(f"**Kebutuhan Kalori Harianmu (TDEE):** {tdee:.0f} kkal")
@@ -167,4 +167,5 @@ if makanan:
             st.info("Biar otot makin jadi, tambahin protein dari telur atau tahu, kuy!")
 else:
     st.write("💬 Pilih makanan & masukin porsinya buat liat hasilnya, bestie.")
+
 
