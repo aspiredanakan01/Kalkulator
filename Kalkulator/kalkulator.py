@@ -1,5 +1,10 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import os
+import json
+import urllib.request
+import urllib.error
+import ssl
 
 # ---------------------------------------
 # Data makanan sederhana (100 gram)
@@ -262,14 +267,156 @@ if makanan:
     with st.container():
         st.subheader("💡 Rekomendasi Cepet")
 
+        # Basic calorie status
         if total["kalori"] < 0.9 * tdee:
-            st.info("Kalorimu masih kurang nih, gas nambah nasi atau pisang! 🍌")
+            st.info("Kalorimu masih kurang nih — tambah porsi karbo atau camilan sehat (pisang, roti, jagung). 🍌")
         elif total["kalori"] > 1.1 * tdee:
-            st.warning("Waduh, kalori agak over. Coba kurangin yang goreng-goreng ya. 😉")
+            st.warning("Kalori hari ini agak over. Kurangi gorengan atau porsi nasi/karbo, dan tambah sayur. 😉")
         else:
-            st.success("Mantap! Kalorimu udah pas. Pertahankan! 🥦")
+            st.success("Kalori sudah pas untuk hari ini — teruskan!")
 
-        if total["protein"] < 0.8 * (berat * 0.8):
+        # Macro breakdown and suggestions
+        prot = total.get("protein", 0)
+        kar = total.get("karbo", 0)
+        fat = total.get("lemak", 0)
+        cal = total.get("kalori", 0)
+
+        # calories from macros
+        calories_from_prot = prot * 4
+        calories_from_kar = kar * 4
+        calories_from_fat = fat * 9
+        total_macro_cals = max(calories_from_prot + calories_from_kar + calories_from_fat, 1)
+
+        prot_pct = calories_from_prot / total_macro_cals
+        kar_pct = calories_from_kar / total_macro_cals
+        fat_pct = calories_from_fat / total_macro_cals
+
+        st.write(f"Protein: {prot:.1f} g — Karbo: {kar:.1f} g — Lemak: {fat:.1f} g")
+        st.write(f"Komposisi energi (perkiraan): Protein {prot_pct:.0%}, Karbo {kar_pct:.0%}, Lemak {fat_pct:.0%}")
+
+        # Practical tips based on macros
+        tips = []
+        # Protein target suggestion: simple heuristic 1.2-1.6 g/kg for active, else 0.8-1.0
+        protein_target = 1.0 * berat
+        if aktivitas == "Sangat Aktif (nge-gym)":
+            protein_target = 1.4 * berat
+
+        if prot < 0.8 * protein_target:
+            tips.append("Proteinmu masih kurang — tambahin telur, tahu, tempe, atau ayam sebagai lauk.")
+        elif prot > 2.5 * berat:
+            tips.append("Protein sudah sangat tinggi untuk 1 hari — variasikan sumber dan kurangi porsi besar.")
+
+        # Carb guidance
+        if kar < 0.4 * (cal / 4):
+            tips.append("Karbo rendah — kalau butuh energi tambah nasi, roti, atau pisang sebelum aktivitas.")
+        if fat > 0.35 * (cal / 9):
+            tips.append("Lemak terlihat tinggi — kurangi makanan goreng/berminyak.")
+
+        # Quick swaps
+        swaps = []
+        if any(x in str(makanan).lower() for x in ["goreng", "fried", "bakar"]) and cal > 1.1 * tdee:
+            swaps.append("Ganti beberapa gorengan dengan tahu/tempe kukus atau sayur rebus untuk memangkas lemak.")
+
+        if cal < 0.9 * tdee:
+            swaps.append("Tambahkan snack sehat: yogurt + buah, segenggam kacang, atau telur rebus.")
+
+        # Display tips
+        if tips:
+            for t in tips:
+                st.info(t)
+        else:
+            st.write("Tidak ada isu makro besar yang terdeteksi — good job!")
+
+        if swaps:
+            st.write("Saran penggantian cepat:")
+            for s in swaps:
+                st.write(f"- {s}")
+
+        # Extra recommendation: sample mini-meal plan to reach TDEE if under
+        if cal < 0.9 * tdee:
+            st.write("\nContoh penambahan 1 porsi untuk menambah ~300 kkal:")
+            st.write("- 1 porsi nasi + 1 telur goreng (atau 2 sdm kacang) — sekitar 250-350 kkal")
+
+        # Additional protein reminder
+        if prot < 0.8 * (berat * 0.8):
             st.info("Biar otot makin jadi, tambahin protein dari telur atau tahu, kuy!")
+
+        # End recommendations
+
+        # -------------------------
+        # Optional AI Assistant (ChatGPT)
+        # -------------------------
+        st.divider()
+        st.subheader("🤖 AI Assistant (opsional)")
+        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.\nAPI key diperlukan: atur `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` di `st.secrets` atau environment variable.")
+
+        ai_prompt = st.text_area("Tanya AI (contoh: " + "'Beri aku ide makan siang 400 kkal kaya protein'" + ")", height=80)
+        ask_ai = st.button("Kirim ke AI")
+
+        def _get_openai_key():
+            # Prefer Streamlit secrets, fallback to env var
+            try:
+                key = st.secrets.get("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")
+            except Exception:
+                key = None
+            if not key:
+                key = os.environ.get("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")
+            return key
+
+        def call_openai_chat(prompt_text: str):
+            api_key = _get_openai_key()
+            if not api_key:
+                return None, "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 tidak ditemukan. Tambahkan ke st.secrets atau environment variables."
+
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+
+            # provide context about current intake
+            context = f"Current totals: kalori={cal:.1f} kcal, protein={prot:.1f} g, karbo={kar:.1f} g, lemak={fat:.1f} g, TDEE={tdee:.0f} kcal."
+            full_prompt = context + "\n\nUser question: " + prompt_text
+
+            body = {
+                "model": "gpt-3.5-turbo",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful nutrition assistant that gives concise, actionable advice and simple recipe/meal suggestions."},
+                    {"role": "user", "content": full_prompt},
+                ],
+                "max_tokens": 300,
+                "temperature": 0.7,
+            }
+
+            data = json.dumps(body).encode("utf-8")
+
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            try:
+                # avoid SSL verification issues
+                ctx = ssl.create_default_context()
+                with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+                    resp_text = resp.read().decode("utf-8")
+                    j = json.loads(resp_text)
+                    content = j["choices"][0]["message"]["content"]
+                    return content, None
+            except urllib.error.HTTPError as e:
+                try:
+                    err = e.read().decode()
+                except Exception:
+                    err = str(e)
+                return None, f"HTTPError: {e.code} {err}"
+            except Exception as e:
+                return None, str(e)
+
+        if ask_ai and ai_prompt.strip():
+            with st.spinner("Menghubungi AI..."):
+                resp, err = call_openai_chat(ai_prompt.strip())
+            if err:
+                st.error(f"Gagal: {err}")
+            elif resp:
+                st.markdown("**AI Response:**")
+                st.info(resp)
+            else:
+                st.write("Tidak ada jawaban dari AI.")
 else:
     st.write("💬 Pilih makanan & masukin porsinya buat liat hasilnya, bestie.")
