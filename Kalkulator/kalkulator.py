@@ -17,7 +17,7 @@ foods = {
 # ---------------------------------------
 # Tampilan Utama
 # ---------------------------------------
-st.set_page_config(page_title="Kalkulator Kalori Gen Z", page_icon="🔥", layout="centered")
+st.set_page_config(page_title="Kalkulator Kalori ", page_icon="🔥", layout="centered")
 
 # ---------------------------------------
 # Custom CSS for Gen Z Style
@@ -66,7 +66,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-st.title("🔥 Kalkulator Kalori Gen Z")
+st.title("🔥 Kalkulator Kalori")
 st.caption("Hitung kalori & gizi harianmu, no ribet! ✨")
 
 # ---------------------------------------
@@ -167,3 +167,4 @@ if makanan:
             st.info("Biar otot makin jadi, tambahin protein dari telur atau tahu, kuy!")
 else:
     st.write("💬 Pilih makanan & masukin porsinya buat liat hasilnya, bestie.")
+
