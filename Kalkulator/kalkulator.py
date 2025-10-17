@@ -348,7 +348,7 @@ if makanan:
         # -------------------------
         st.divider()
         st.subheader("🤖 AI Assistant (opsional)")
-        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.\nAPI key diperlukan: atur `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` di `st.secrets` atau environment variable.")
+        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.")
 
         ai_prompt = st.text_area("Tanya AI (contoh: " + "'Beri aku ide makan siang 400 kkal kaya protein'" + ")", height=80)
         ask_ai = st.button("Kirim ke AI")
