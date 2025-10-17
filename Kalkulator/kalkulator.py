@@ -17,24 +17,71 @@ foods = {
 # ---------------------------------------
 # Tampilan Utama
 # ---------------------------------------
-st.set_page_config(page_title="Kalkulator Makanan Sehat", page_icon="🥗", layout="centered")
+st.set_page_config(page_title="Kalkulator Kalori Gen Z", page_icon="🔥", layout="centered")
 
-st.title("🥗 Kalkulator Makanan Sehat")
-st.caption("Versi minimalis – hitung kalori & gizi harianmu dengan cepat")
+# ---------------------------------------
+# Custom CSS for Gen Z Style
+# ---------------------------------------
+st.markdown("""
+<style>
+    /* Main app background */
+    .stApp {
+        background-color: #1a1a1a;
+        color: #e6e6e6;
+    }
+    
+    /* Titles and headers */
+    h1, h2, h3 {
+        color: #ffffff;
+        font-weight: 700;
+    }
+
+    /* Input widgets */
+    .st-emotion-cache-1r4qj8v, .st-emotion-cache-1y4p8pa {
+        border-radius: 12px;
+        border: 1px solid #4f4f4f;
+        background-color: #2b2b2b;
+    }
+    
+    /* Buttons */
+    .stButton>button {
+        border-radius: 12px;
+        border: 1px solid #4f4f4f;
+        background-color: #3d3d3d;
+        color: #ffffff;
+    }
+
+    /* Metrics */
+    .st-emotion-cache-1vzeuhh {
+        border-radius: 12px;
+        padding: 1rem;
+        background-color: #2b2b2b;
+    }
+    
+    /* Progress bar */
+    .st-emotion-cache-fplgep {
+        border-radius: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+st.title("🔥 Kalkulator Kalori Gen Z")
+st.caption("Hitung kalori & gizi harianmu, no ribet! ✨")
 
 # ---------------------------------------
 # Input Data Pengguna
 # ---------------------------------------
-st.header("👤 Data Pribadi")
-
-col1, col2 = st.columns(2)
-with col1:
-    gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
-    usia = st.number_input("Usia (tahun)", 1, 100, 25)
-    aktivitas = st.selectbox("Aktivitas", ["Rendah", "Sedang", "Tinggi"])
-with col2:
-    berat = st.number_input("Berat Badan (kg)", 1, 200, 60)
-    tinggi = st.number_input("Tinggi Badan (cm)", 100, 220, 165)
+with st.container():
+    st.header("👤 Data Diri")
+    col1, col2 = st.columns(2)
+    with col1:
+        gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
+        usia = st.slider("Usia (tahun)", 1, 100, 25)
+        aktivitas = st.selectbox("Level Aktivitas", ["Santai (rebahan)", "Normal (kuliah/kerja)", "Sangat Aktif (nge-gym)"])
+    with col2:
+        berat = st.slider("Berat Badan (kg)", 1, 200, 60)
+        tinggi = st.slider("Tinggi Badan (cm)", 100, 220, 165)
 
 # ---------------------------------------
 # Hitung BMR & TDEE
@@ -44,20 +91,21 @@ if gender == "Laki-laki":
 else:
     bmr = 10 * berat + 6.25 * tinggi - 5 * usia - 161
 
-faktor = {"Rendah": 1.2, "Sedang": 1.55, "Tinggi": 1.725}
+faktor = {"Santai (rebahan)": 1.2, "Normal (kuliah/kerja)": 1.55, "Sangat Aktif (nge-gym)": 1.725}
 tdee = bmr * faktor[aktivitas]
 
-st.markdown(f"**Kebutuhan Kalori Harian (TDEE):** {tdee:.0f} kkal")
+st.success(f"**Kebutuhan Kalori Harianmu (TDEE):** {tdee:.0f} kkal")
 
 # ---------------------------------------
 # Input Makanan
 # ---------------------------------------
-st.header("🍽️ Input Makanan")
-makanan = st.multiselect("Pilih makanan yang dikonsumsi:", list(foods.keys()))
-porsi = {}
+with st.container():
+    st.header("🍽️ Makanan Hari Ini")
+    makanan = st.multiselect("Pilih makanan yang kamu makan:", list(foods.keys()))
+    porsi = {}
 
-for m in makanan:
-    porsi[m] = st.number_input(f"{m} (gram)", min_value=0.0, max_value=1000.0, step=10.0)
+    for m in makanan:
+        porsi[m] = st.number_input(f"{m} (gram)", min_value=0.0, max_value=1000.0, step=10.0, key=f"porsi_{m}")
 
 # ---------------------------------------
 # Hitung Total Nutrisi
@@ -69,44 +117,53 @@ if makanan:
             total[n] += foods[m][n] * (g / 100)
 
     st.divider()
-    st.subheader("📊 Hasil Asupan Harian")
+    
+    with st.container():
+        st.subheader("📊 Hasil Asupanmu")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Total Kalori", f"{total['kalori']:.1f} kkal")
-        st.metric("Protein", f"{total['protein']:.1f} g")
-    with col2:
-        st.metric("Karbohidrat", f"{total['karbo']:.1f} g")
-        st.metric("Lemak", f"{total['lemak']:.1f} g")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Kalori", f"{total['kalori']:.1f} kkal")
+            st.metric("Protein", f"{total['protein']:.1f} g")
+        with col2:
+            st.metric("Karbohidrat", f"{total['karbo']:.1f} g")
+            st.metric("Lemak", f"{total['lemak']:.1f} g")
 
-    # Progress bar kalori
-    st.write("**Capaian kalori harian:**")
-    st.progress(min(total["kalori"] / tdee, 1.0))
+        # Progress bar kalori
+        st.write("**Progress Kalori Harian:**")
+        st.progress(min(total["kalori"] / tdee, 1.0))
 
-    # Pie chart makronutrien
-    fig, ax = plt.subplots(figsize=(3, 3))
-    ax.pie(
-        [total["karbo"], total["protein"], total["lemak"]],
-        labels=["Karbo", "Protein", "Lemak"],
-        autopct="%1.1f%%",
-        textprops={"fontsize": 8},
-    )
-    st.pyplot(fig)
+        # Pie chart makronutrien
+        st.write("**Komposisi Makro:**")
+        fig, ax = plt.subplots(figsize=(3, 3))
+        ax.patch.set_alpha(0) # Transparan background
+        fig.patch.set_alpha(0)
+        
+        pie_colors = ['#ff9999','#66b3ff','#99ff99']
+        ax.pie(
+            [total["karbo"], total["protein"], total["lemak"]],
+            labels=["Karbo", "Protein", "Lemak"],
+            autopct="%1.1f%%",
+            colors=pie_colors,
+            textprops={"fontsize": 8, "color": "white"},
+        )
+        st.pyplot(fig)
 
     # ---------------------------------------
     # Rekomendasi Otomatis
     # ---------------------------------------
     st.divider()
-    st.subheader("💡 Rekomendasi")
+    with st.container():
+        st.subheader("💡 Rekomendasi Cepet")
 
-    if total["kalori"] < 0.9 * tdee:
-        st.info("Asupan kalori masih **kurang**, tambahkan makanan seperti nasi, tempe, atau pisang.")
-    elif total["kalori"] > 1.1 * tdee:
-        st.warning("Kalori **berlebih**, kurangi makanan tinggi lemak seperti ayam goreng.")
-    else:
-        st.success("Asupan kalori sudah **seimbang**, pertahankan pola makanmu! 🥦")
+        if total["kalori"] < 0.9 * tdee:
+            st.info("Kalorimu masih kurang nih, gas nambah nasi atau pisang! 🍌")
+        elif total["kalori"] > 1.1 * tdee:
+            st.warning("Waduh, kalori agak over. Coba kurangin yang goreng-goreng ya. 😉")
+        else:
+            st.success("Mantap! Kalorimu udah pas. Pertahankan! 🥦")
 
-    if total["protein"] < 0.8 * (berat * 0.8):
-        st.info("Protein agak rendah, bisa tambah sumber protein seperti telur atau tahu.")
+        if total["protein"] < 0.8 * (berat * 0.8):
+            st.info("Biar otot makin jadi, tambahin protein dari telur atau tahu, kuy!")
 else:
-    st.write("💬 Pilih makanan dan masukkan porsinya untuk menghitung total gizi.")
+    st.write("💬 Pilih makanan & masukin porsinya buat liat hasilnya, bestie.")
