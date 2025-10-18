@@ -393,7 +393,7 @@ if makanan:
             try:
                 # Inisialisasi model dengan generation_config (temperature, top_p, top_k, max tokens)
                 model = genai.GenerativeModel(
-                    "gemini-1.5-flash",
+                    "gemini-1.5-flash-latest",
                     generation_config={
                         "temperature": 0.7,
                         "top_p": 0.9,
@@ -431,3 +431,4 @@ if makanan:
                     st.info(resp)
                 except Exception as e:
                     st.error(f"Gagal memanggil Gemini: {e}")
+
