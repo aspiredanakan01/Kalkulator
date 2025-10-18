@@ -2,9 +2,11 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 import json
-import urllib.request
-import urllib.error
 import ssl
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
 
 # ---------------------------------------
 # Data makanan sederhana (100 gram)
@@ -367,20 +369,26 @@ if makanan:
         # -------------------------
         # Ambil API key dengan benar
         # -------------------------
-        def _get_google_api_key():
+        def _get_gemini_key():
             try:
-                return st.secrets["GOOGLE_API_KEY"]
+                return st.secrets["GEMINI_API_KEY"]
             except Exception:
-                return os.environ.get("GOOGLE_API_KEY")
+                return os.environ.get("GEMINI_API_KEY")
 
         def call_gemini_chat(prompt_text: str):
-            api_key = _get_google_api_key()
+            # prefer official SDK if available
+            api_key = _get_gemini_key()
             if not api_key:
-                return None, "🔑 GOOGLE_API_KEY tidak ditemukan di st.secrets atau environment variables."
+                return None, "🔑 GEMINI_API_KEY tidak ditemukan di st.secrets atau environment variables."
 
-            # Google Generative Language API (example endpoint)
-            url = "https://generativelanguage.googleapis.com/v1beta2/models/text-bison:generate"
-            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            if genai is None:
+                return None, "Library google.generativeai belum terpasang. Install 'google-generative-ai' terlebih dahulu."
+
+            # configure genai
+            try:
+                genai.configure(api_key=api_key)
+            except Exception as e:
+                return None, f"Gagal konfigurasi Gemini SDK: {e}"
 
             context = (
                 f"Current totals: kalori={cal:.1f} kcal, protein={prot:.1f} g, "
@@ -388,44 +396,33 @@ if makanan:
             )
             full_prompt = context + "\n\nUser question: " + prompt_text
 
-            body = {
-                "prompt": full_prompt,
-                "temperature": 0.7,
-                "maxOutputTokens": 300
-            }
-
-            data = json.dumps(body).encode("utf-8")
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-
             try:
-                ctx = ssl.create_default_context()
-                with urllib.request.urlopen(req, context=ctx, timeout=20) as resp:
-                    j = json.loads(resp.read().decode("utf-8"))
-                    if "candidates" in j and len(j["candidates"]) > 0:
-                        return j["candidates"][0].get("content", ""), None
-                    return j.get("output", {}).get("text", ""), None
-            except urllib.error.HTTPError as e:
-                try:
-                    err = e.read().decode()
-                except Exception:
-                    err = str(e)
-                return None, f"HTTPError: {e.code} {err}"
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(full_prompt, temperature=0.7, max_output_tokens=300)
+                # response may be object-like; try to extract text
+                text = getattr(response, "text", None)
+                if not text and hasattr(response, "candidates"):
+                    candidates = getattr(response, "candidates")
+                    if isinstance(candidates, (list, tuple)) and len(candidates) > 0:
+                        text = candidates[0].get("content") if isinstance(candidates[0], dict) else getattr(candidates[0], "content", None)
+                return text or "", None
             except Exception as e:
                 return None, str(e)
+        # wrapper yang sesuai dengan API pengguna: call_gemini(prompt) -> raises on error
+        def call_gemini(prompt: str):
+            resp, err = call_gemini_chat(prompt)
+            if err:
+                raise RuntimeError(err)
+            return resp
 
         # jalankan panggilan AI hanya bila tombol ditekan
-        if ask_ai:
+        if ask_ai and ai_prompt.strip():
             # simpan prompt ke session_state agar tidak hilang pada rerun
             st.session_state.ai_prompt = ai_prompt
-            if ai_prompt.strip():
-                with st.spinner("Menghubungi AI (Gemini)..."):
-                    resp, err = call_gemini_chat(ai_prompt.strip())
-                if err:
-                    st.error(f"Gagal: {err}")
-                elif resp:
-                    st.markdown("**AI Response:**")
+            with st.spinner("🤖 Gemini lagi mikir..."):
+                try:
+                    resp = call_gemini(ai_prompt.strip())
+                    st.success("**AI (Gemini) Menjawab:**")
                     st.info(resp)
-                else:
-                    st.write("Tidak ada jawaban dari AI.")
-            else:
-                st.warning("Tolong ketik pertanyaan sebelum mengirim ke AI.")
+                except Exception as e:
+                    st.error(f"Gagal memanggil Gemini: {e}")
