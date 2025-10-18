@@ -376,10 +376,10 @@ if makanan:
                 return os.environ.get("GEMINI_API_KEY")
 
         def call_gemini_chat(prompt_text: str):
-            # prefer official SDK if available
-            api_key = _get_gemini_key()
+            # Using GEMINI_API_KEY from st.secrets (no env fallback per snippet)
+            api_key = st.secrets.get("GEMINI_API_KEY")
             if not api_key:
-                return None, "🔑 GEMINI_API_KEY tidak ditemukan di st.secrets atau environment variables."
+                return None, "API key Gemini tidak ditemukan. Tambahkan ke st.secrets."
 
             if genai is None:
                 return None, "Library google.generativeai belum terpasang. Install 'google-generative-ai' terlebih dahulu."
@@ -390,22 +390,27 @@ if makanan:
             except Exception as e:
                 return None, f"Gagal konfigurasi Gemini SDK: {e}"
 
-            context = (
-                f"Current totals: kalori={cal:.1f} kcal, protein={prot:.1f} g, "
-                f"karbo={kar:.1f} g, lemak={fat:.1f} g, TDEE={tdee:.0f} kcal."
-            )
-            full_prompt = context + "\n\nUser question: " + prompt_text
-
             try:
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(full_prompt, temperature=0.7, max_output_tokens=300)
-                # response may be object-like; try to extract text
-                text = getattr(response, "text", None)
-                if not text and hasattr(response, "candidates"):
-                    candidates = getattr(response, "candidates")
-                    if isinstance(candidates, (list, tuple)) and len(candidates) > 0:
-                        text = candidates[0].get("content") if isinstance(candidates[0], dict) else getattr(candidates[0], "content", None)
-                return text or "", None
+                # Inisialisasi model dengan generation_config (temperature, top_p, top_k, max tokens)
+                model = genai.GenerativeModel(
+                    "gemini-1.5-flash",
+                    generation_config={
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                        "top_k": 40,
+                        "max_output_tokens": 300,
+                    },
+                )
+
+                # Gabungkan konteks gizi dan pertanyaan pengguna
+                context = f"Asupan sekarang: {total['kalori']:.1f} kkal, protein {total['protein']:.1f} g, karbo {total['karbo']:.1f} g, lemak {total['lemak']:.1f} g, TDEE {tdee:.0f} kkal."
+                full_prompt = context + "\n\nUser question: " + prompt_text
+
+                # 🔥 Pemanggilan yang benar TANPA temperature pada generate_content
+                response = model.generate_content(full_prompt)
+                # try to return response.text per snippet
+                return getattr(response, "text", None) or "", None
+
             except Exception as e:
                 return None, str(e)
         # wrapper yang sesuai dengan API pengguna: call_gemini(prompt) -> raises on error
