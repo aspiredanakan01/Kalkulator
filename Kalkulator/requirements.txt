@@ -1,4 +1,5 @@
+--upgrade
 streamlit==1.38.0
-rich<14
+rich==13.7.1
+matplotlib==3.9.2
 google-generativeai>=0.9.0
-matplotlib
