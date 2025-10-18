@@ -344,12 +344,11 @@ if makanan:
         # End recommendations
 
         # -------------------------
-               # -------------------------
-        # Optional AI Assistant (ChatGPT) - FIXED (unique keys)
+        # Optional AI Assistant (Gemini) - FIXED (unique keys)
         # -------------------------
         st.divider()
-        st.subheader("🤖 AI Assistant (opsional)")
-        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat.")
+        st.subheader("🤖 AI Assistant (opsional - Gemini)")
+        st.write("Tanya asisten tentang meal planning, substitusi bahan, atau minta ide resep singkat. (Menggunakan Google Generative API / Gemini)")
 
         # gunakan key unik untuk text_area & button agar tidak terjadi duplicate element id
         if "ai_prompt" not in st.session_state:
@@ -359,7 +358,7 @@ if makanan:
             "Tanya AI (contoh: 'Beri aku ide makan siang 400 kkal kaya protein')",
             value=st.session_state.get("ai_prompt", ""),
             height=80,
-            key="ai_prompt_textarea",  # unik
+            key="ai_prompt_textarea",
         )
 
         # tombol dengan key unik
@@ -368,22 +367,20 @@ if makanan:
         # -------------------------
         # Ambil API key dengan benar
         # -------------------------
-        def _get_openai_key():
+        def _get_google_api_key():
             try:
-                return st.secrets["OPENAI_API_KEY"]
+                return st.secrets["GOOGLE_API_KEY"]
             except Exception:
-                return os.environ.get("OPENAI_API_KEY")
+                return os.environ.get("GOOGLE_API_KEY")
 
-        def call_openai_chat(prompt_text: str):
-            api_key = _get_openai_key()
+        def call_gemini_chat(prompt_text: str):
+            api_key = _get_google_api_key()
             if not api_key:
-                return None, "🔑 OPENAI_API_KEY tidak ditemukan di st.secrets atau environment variables."
+                return None, "🔑 GOOGLE_API_KEY tidak ditemukan di st.secrets atau environment variables."
 
-            url = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            }
+            # Google Generative Language API (example endpoint)
+            url = "https://generativelanguage.googleapis.com/v1beta2/models/text-bison:generate"
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
             context = (
                 f"Current totals: kalori={cal:.1f} kcal, protein={prot:.1f} g, "
@@ -392,16 +389,9 @@ if makanan:
             full_prompt = context + "\n\nUser question: " + prompt_text
 
             body = {
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful nutrition assistant that gives concise, actionable advice and simple recipe/meal suggestions."
-                    },
-                    {"role": "user", "content": full_prompt},
-                ],
-                "max_tokens": 300,
+                "prompt": full_prompt,
                 "temperature": 0.7,
+                "maxOutputTokens": 300
             }
 
             data = json.dumps(body).encode("utf-8")
@@ -409,9 +399,11 @@ if makanan:
 
             try:
                 ctx = ssl.create_default_context()
-                with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+                with urllib.request.urlopen(req, context=ctx, timeout=20) as resp:
                     j = json.loads(resp.read().decode("utf-8"))
-                    return j["choices"][0]["message"]["content"], None
+                    if "candidates" in j and len(j["candidates"]) > 0:
+                        return j["candidates"][0].get("content", ""), None
+                    return j.get("output", {}).get("text", ""), None
             except urllib.error.HTTPError as e:
                 try:
                     err = e.read().decode()
@@ -426,8 +418,8 @@ if makanan:
             # simpan prompt ke session_state agar tidak hilang pada rerun
             st.session_state.ai_prompt = ai_prompt
             if ai_prompt.strip():
-                with st.spinner("Menghubungi AI..."):
-                    resp, err = call_openai_chat(ai_prompt.strip())
+                with st.spinner("Menghubungi AI (Gemini)..."):
+                    resp, err = call_gemini_chat(ai_prompt.strip())
                 if err:
                     st.error(f"Gagal: {err}")
                 elif resp:
